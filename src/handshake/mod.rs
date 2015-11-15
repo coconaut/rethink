@@ -22,9 +22,16 @@ const JSON: u32      = 0x7e6970c7;
 
 // need to connect via TCP, form handshake, retreive success.
 pub fn connect() {
+    let stream_res = TcpStream::connect(addr);
+    match stream_res {
+        Ok(mut stream) => handshake(&mut stream),
+        Err(e) => println!("Unable to connect: {}", e)
+    };
+}
+
+pub fn handshake(stream: &mut TcpStream) {
     let mut buffer = [0; 100];
-    let mut stream = TcpStream::connect(addr).unwrap(); // TODO: handle result here, don't just unwrap!
-    let _ = stream.write_u32::<LittleEndian>(V0_3); // note: write returns a Result<usize>
+    let _ = stream.write_u32::<LittleEndian>(V0_4); // note: write returns a Result<usize>
     stream.write_u32::<LittleEndian>(0);
     stream.write_u32::<LittleEndian>(JSON);
     stream.read(&mut buffer);
