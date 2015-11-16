@@ -1,5 +1,6 @@
 mod test;
 extern crate byteorder;
+use std::io;
 use std::io::prelude::*;
 use std::net::TcpStream;
 use std::str;
@@ -21,20 +22,28 @@ const JSON: u32      = 0x7e6970c7;
 
 
 // need to connect via TCP, form handshake, retreive success.
-pub fn connect() {
+pub fn connect() -> Option<TcpStream> {
     let stream_res = TcpStream::connect(addr);
-    match stream_res {
-        Ok(mut stream) => handshake(&mut stream),
-        Err(e) => println!("Unable to connect: {}", e)
-    };
+    let s =
+        match stream_res {
+            Ok(mut stream) => {
+                handshake(&mut stream);
+                Some(stream)
+            }
+            Err(e) => {
+                println!{"Unable to connect: {}", e}
+                None
+            }
+        };
+    s
 }
 
 pub fn handshake(stream: &mut TcpStream) {
     let mut buffer = [0; 100];
     let _ = stream.write_u32::<LittleEndian>(V0_4); // note: write returns a Result<usize>
-    stream.write_u32::<LittleEndian>(0);
-    stream.write_u32::<LittleEndian>(JSON);
-    stream.read(&mut buffer);
+    let _ = stream.write_u32::<LittleEndian>(0);
+    let _ = stream.write_u32::<LittleEndian>(JSON);
+    let _ = stream.read(&mut buffer);
     let msg = str::from_utf8(&mut buffer);
     match msg {
         Ok(m) => println!("{}", m),
