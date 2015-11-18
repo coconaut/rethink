@@ -75,11 +75,12 @@ pub fn handshake(stream: &mut TcpStream) -> bool {
     }
 }
 
-pub fn query(stream: &mut TcpStream){
-    log("quering the database");
+pub fn read_query_test(stream: &mut TcpStream){
+    log("quering the database for a test read");
     let token: u64 = 1;
-    //let q = "[15, [[14, [\"DeppFans\"]], \"Animals\"]]".as_bytes();
-    let q = "[1, \"foo\", {} ]".as_bytes();
+    // ReQL: r.db("DeppFans").table("Animals")
+    let q = "[1,[15, [[14, [\"DeppFans\"]], \"Animals\"]],{}]".as_bytes();
+    //let q = "[1, \"foo\", {} ]".as_bytes();
     let len = q.len();
     let mut buffer = [0; 100];
     let _ = stream.write_u64::<BigEndian>(token);
@@ -88,11 +89,34 @@ pub fn query(stream: &mut TcpStream){
     let size = stream.read(&mut buffer).unwrap();
     let msg = str::from_utf8(&mut buffer).unwrap();
     println!("{}", msg);
-
-
-
     // serialize query as UTF-encoded JSON -> will also need query type, opts
-    // need to consider reading strategy
+    // need to consider reading strategy with buffer, etc.
+}
 
-
+pub fn write_query_test(stream: &mut TcpStream) {
+    log("quering the database for a test write");
+    let token: u64 = 2;
+    // ReQL: r.db("DeppFans").table("Animals").insert(some json)
+    let q =
+    "[1,
+        [56,
+            [[15,
+                [[14,
+                    [\"DeppFans\"]
+                ],
+            \"Animals\"
+            ]],
+        {\"id\": 1, \"name\": \"koala\"}
+        ]],
+    {}
+    ]".as_bytes();
+    //let q = "[1, \"foo\", {} ]".as_bytes();
+    let len = q.len();
+    let mut buffer = [0; 100];
+    let _ = stream.write_u64::<BigEndian>(token);
+    let _ = stream.write_u32::<LittleEndian>(len as u32);
+    let _ = stream.write(q);
+    let size = stream.read(&mut buffer).unwrap();
+    let msg = str::from_utf8(&mut buffer).unwrap();
+    println!("{}", msg);
 }
