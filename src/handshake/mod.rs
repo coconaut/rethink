@@ -28,7 +28,6 @@ fn log(s: &str) {
 }
 
 
-
 // need to connect via TCP, form handshake, retreive success.
 pub fn connect() -> Option<TcpStream> {
     let stream_res = TcpStream::connect(addr);
@@ -48,6 +47,7 @@ pub fn connect() -> Option<TcpStream> {
         };
     s
 }
+
 // TODO: accept auth key
 pub fn handshake(stream: &mut TcpStream) -> bool {
     log("performing handshake");
@@ -78,7 +78,8 @@ pub fn handshake(stream: &mut TcpStream) -> bool {
 pub fn query(stream: &mut TcpStream){
     log("quering the database");
     let token: u64 = 1;
-    let q = "foo".as_bytes();
+    //let q = "[15, [[14, [\"DeppFans\"]], \"Animals\"]]".as_bytes();
+    let q = "[1, \"foo\", {} ]".as_bytes();
     let len = q.len();
     let mut buffer = [0; 100];
     let _ = stream.write_u64::<BigEndian>(token);
