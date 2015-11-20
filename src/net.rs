@@ -1,27 +1,14 @@
-mod test;
 extern crate byteorder;
 use std::io;
 use std::io::prelude::*;
 use std::net::TcpStream;
 use std::str;
+use proto::{Version, Protocol};
 use self::byteorder::{WriteBytesExt, LittleEndian, BigEndian};
 
 // hardcoding for now...
 const addr: &'static str = "127.0.0.1:28015";
 
-
-enum Version {
-    V0_1 = 0x3f61ba36,
-    V0_2 = 0x723081e1, // Authorization key during handshake
-    V0_3 = 0x5f75e83e, // Authorization key and protocol during handshake
-    V0_4 = 0x400c2d20
-}
-
-
-enum Protocol {
-    PROTOBUF = 0x271ffc41,
-    JSON     = 0x7e6970c7
-}
 
 fn log(s: &str) {
     println!("==> {}", s);
@@ -47,6 +34,7 @@ pub fn connect() -> Option<TcpStream> {
         };
     s
 }
+
 
 // TODO: accept auth key
 pub fn handshake(stream: &mut TcpStream) -> bool {
@@ -106,7 +94,7 @@ pub fn write_query_test(stream: &mut TcpStream) {
                 ],
             \"Animals\"
             ]],
-        {\"id\": 1, \"name\": \"koala\"}
+        {\"id\": 3, \"name\": \"wildebeest\"}
         ]],
     {}
     ]".as_bytes();
