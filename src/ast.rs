@@ -6,6 +6,7 @@ use std::net::TcpStream;
 use std::str;
 use std::mem;
 use self::byteorder::{WriteBytesExt, LittleEndian, BigEndian};
+use net::*;
 
 // use these to maintain vec
 // enum MetaTerm {
@@ -14,15 +15,16 @@ use self::byteorder::{WriteBytesExt, LittleEndian, BigEndian};
 //     _DB(DB)
 // }
 
-pub struct Term<'a> {
-    db: DB<'a>,
+pub struct Term {
+    db: DB,
     tt: TermType,
     args: &'static str,
     //optargs: &'static str,
     // TODO: and need to deal with various compose overloads -> may need that enum after all...?
     //chain: Vec<Term>
 }
-impl<'a> Term<'a> {
+
+impl Term {
     pub fn run(self) {
         let start = QueryType::START as u32;
         let token: u64 = 1;
@@ -37,7 +39,7 @@ impl<'a> Term<'a> {
         let len = q.len();
         let mut buffer = [0; 100];
 
-        let ref mut stream = self.db.r.connection;
+        let ref mut stream = self.db.r.connection.stream.unwrap();
 
         let _ = stream.write_u64::<BigEndian>(token);
         let _ = stream.write_u32::<LittleEndian>(len as u32);
@@ -65,29 +67,42 @@ impl<'a> Term<'a> {
 
 
 // let r = R.new(stream);
-pub struct R<'a> {
-    pub connection: &'a mut TcpStream
+pub struct R {
+    pub connection: Connection
 }
-impl<'a> R<'a> {
+
+impl R {
     // static
-    pub fn new(stream: &'a mut TcpStream) -> R<'a> {
-        let r = R {connection : stream};
+    pub fn new() -> R {
+        let r = R {connection : Connection::new()};
         r
     }
 
-    pub fn db(&'a mut self, db_name: &'static str) -> DB<'a> {
+    pub fn connect(&mut self) {
+        self.connection.connect();
+    }
+
+    pub fn db(self, db_name: &'static str) -> DB {
         let db = DB {r: self, tt: TermType::DB, name: db_name};
         db
     }
+
+    // TODO: send query through connection (incr token, send through stream)
+    // pub fn send(query: &[u8]) {
+    //
+    // }
+
+    //TODO: recv response (as string at this level? have connection -> stream read?)
 }
 
-pub struct DB<'a> {
-    r: &'a mut R<'a>,
+pub struct DB {
+    r: R,
     tt: TermType,
     name: &'static str
 }
-impl<'a> DB<'a> {
-    pub fn table(self, table_name: &'static str) -> Term<'a> {
+
+impl DB {
+    pub fn table(self, table_name: &'static str) -> Term {
         let t = Term {db: self, tt: TermType::TABLE, args: table_name};
         t
     }

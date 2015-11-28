@@ -3,69 +3,92 @@ use std::io;
 use std::io::prelude::*;
 use std::net::TcpStream;
 use std::str;
+use std::convert::AsRef;
 use proto::{Version, Protocol};
 use self::byteorder::{WriteBytesExt, LittleEndian, BigEndian};
-
-// hardcoding for now...
-const addr: &'static str = "127.0.0.1:28015";
 
 
 fn log(s: &str) {
     println!("==> {}", s);
 }
 
-// TODO:
-// pub struct Connection {
-//
-// }
+pub struct Connection {
+    addr: &'static str,
+    token: u64,
+    pub stream : Option<TcpStream>
+}
+impl Connection {
+    // TODO: accept params
+    pub fn new() -> Connection {
+        let c = Connection {addr:"127.0.0.1:28015", token: 0, stream: None};
+        c
+    }
 
-// need to connect via TCP, form handshake, retreive success.
-pub fn connect() -> Option<TcpStream> {
-    let stream_res = TcpStream::connect(addr);
-    let s =
-        match stream_res {
-            Ok(mut stream) => {
-                let success = handshake(&mut stream);
-                match success {
-                    true => Some(stream),
-                    false => None
-                }
-            },
-            Err(e) => {
-                println!("Unable to connect: {}", e);
-                None
-            }
-        };
-    s
+    pub fn connect(&mut self) -> bool {
+        establish_connection(self);
+        handshake(self)
+    }
+
+
 }
 
+fn establish_connection(c: &mut Connection) {
+    let stream_res = TcpStream::connect(c.addr);
+    match stream_res {
+        Ok(mut stream) => {
+            c.stream = Some(stream);
+        }
+        Err(e) => {
+            println!("Unable to connect: {}", e);
+        }
+    }
+}
 
-// TODO: accept auth key
-pub fn handshake(stream: &mut TcpStream) -> bool {
-    log("performing handshake");
+fn handshake(c: &mut Connection) -> bool {
+    println!("performing handshake...");
+    match c.stream {
+        None => {
+            println!("no active connection...");
+            false
+        }
+        Some(ref mut stream) => {
+            send_version_and_protocol(stream);
+            let msg = read_handshake_response(stream);
+            match msg.as_ref() {
+                "SUCCESS" => {
+                    println!("{}", msg);
+                    true
+                },
+                x => {
+                    println!("Auth failed!!! {} !!!", x);
+                    false
+                }
+            }
+        }
+    }
+}
+
+// TODO: accept version and protocol params, auth token, etc.
+fn send_version_and_protocol(stream: &mut TcpStream) {
     let version = Version::V0_4 as u32;
     let protocol = Protocol::JSON as u32;
     let mut buffer = [0; 100];
     let _ = stream.write_u32::<LittleEndian>(version); // note: write returns a Result<usize>
     let _ = stream.write_u32::<LittleEndian>(0);
     let _ = stream.write_u32::<LittleEndian>(protocol);
-
-    // TODO: add timeouts?
-    let size = stream.read(&mut buffer).unwrap();
-    let mut msg_bytes = &buffer[0..(size - 1)];
-    let msg = str::from_utf8(&mut msg_bytes);
-    match msg {
-        Ok(m) if m == "SUCCESS" => {
-            println!("{}", m);
-            true
-        },
-        Ok(x) => {
-            println!("Auth failed: {}!!!", x);
-            false
-        },
-        Err(e) => panic!("Error: {}", e)
-    }
 }
+
+
+pub fn read_handshake_response(stream: &mut TcpStream) -> String {
+    println!("reading response...");
+    let mut buffer = [0;100];
+    let size = stream.read(&mut buffer).unwrap();
+    let mut msg_bytes = &buffer[0..(size-1)];
+    let msg = str::from_utf8(&mut msg_bytes).unwrap();
+    // passing as String to let buffer die
+    msg.to_string()
+}
+
 
 pub fn read_query_test(stream: &mut TcpStream){
     log("quering the database for a test read");
