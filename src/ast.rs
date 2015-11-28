@@ -1,140 +1,91 @@
-use proto::*;
+extern crate byteorder;
+use proto::{TermType, QueryType};
+use std::io;
+use std::io::prelude::*;
+use std::net::TcpStream;
+use std::str;
+use self::byteorder::{WriteBytesExt, LittleEndian, BigEndian};
 
-// ----------------------------------------------------
-// Main RQL Query traits - semi polymorphic
-// ----------------------------------------------------
-pub trait RQLQuery {
-    // TODO: run fn
-    fn eq(&self) -> Term {Term {tt: TermType::Eq, st: "eq"}}
+// use these to maintain vec
+// enum MetaTerm {
+//     _Term(Term),
+//     _Table(Table),
+//     _DB(DB)
+// }
 
-}
-
-
-pub trait RQLBoolOperQuery : RQLQuery {
-
-}
-
-pub trait RQLBiOperQuery : RQLQuery {
-
-}
-
-pub trait RQLBiCompareOperQuery : RQLQuery {
-
-}
-
-pub trait RQLTopLevelQuery : RQLQuery {
-
-}
-
-pub trait RQLMethodQuery : RQLQuery {
-    // TODO: compose fn
-}
-
-pub trait RQLBracketQuery : RQLMethodQuery {
-
-}
-
-// ----------------------------------------------------
-// Semi specific structs
-// ----------------------------------------------------
-
-
-pub struct Datum {
-
-}
-impl Datum {
-
-}
-impl RQLQuery for Datum {}
-
-
-pub struct MakeArray {
-
-}
-impl MakeArray {
-
-}
-impl RQLQuery for MakeArray {}
-
-
-pub struct MakeObj {
-
-}
-impl MakeObj {
-
-}
-impl RQLQuery for MakeObj {}
-
-
-pub struct Var {
-    tt: TermType
-}
-impl Var {
-
-    //TODO: fn compose
-}
-
-// ----------------------------------------------------
-// Query structs. All should default impl their
-// respective query types, should enable the method chaining
-// without rewriting.
-// Doesn't seem worth a bunch of dup structs with same props,
-// so trying to keep it simpler with Terms and let the
-// query funcs assign the defaults, since we'd need to do it
-// anyway.
-// ----------------------------------------------------
-
-pub struct Term {
+pub struct Term<'a> {
+    r: &'a mut R<'a>,
+    db: &'a mut DB<'a>,
     tt: TermType,
-    st: &'static str
+    args: &'static str,
+    //optargs: &'static str,
+    // TODO: and need to deal with various compose overloads -> may need that enum after all...?
+    //chain: Vec<Term>
 }
-impl RQLQuery for Term { }
+// impl<'a> Term<'a> {
+//     pub fn run(&self) {
+//         let start = QueryType::START as u32;
+//         let token: u64 = 1;
+//         let composed = self.compose();
+//         //[1,[15, [[14, [\"DeppFans\"]], \"Animals\"]],{}]
+//         let wrapped = format!("[{0}, {1}, {{}}]", start, composed);
+//         let q = wrapped.as_str().as_bytes();
+//         let len = q.len();
+//         let mut buffer = [0; 100];
+//         let _ = self.r.connection.write_u64::<BigEndian>(token);
+//         let _ = self.r.connection.write_u32::<LittleEndian>(len as u32);
+//         let _ = self.r.connection.write(q);
+//         let size = self.r.connection.read(&mut buffer).unwrap();
+//         let msg = str::from_utf8(&mut buffer).unwrap();
+//         println!("{}", msg);
+//     }
+//
+//     pub fn compose(&self) -> String {
+//         let db_expr = self.db.compose();
+//         // need to go forward in chain: for loop and wrap
+//         // for now, just using this term!
+//         //[15, [[14, [\"DeppFans\"]], \"Animals\"]]
+//         let expressed = format!("[{0}, [{1}, \"{2}\"]]", self.tt as u32, db_expr, self.args);
+//         expressed
+//     }
+// }
+
+// trait RqlQuery {
+//     // operators, specific qb functs
+//
+// }
+// impl on either term
 
 
-pub struct TopLevelTerm {
+// let r = R.new(stream);
+pub struct R<'a> {
+    connection: &'a mut TcpStream
+}
+impl<'a> R<'a> {
+    pub fn new(&mut self, stream: &'a mut TcpStream) -> &'a R {
+        self.connection = stream;
+        self
+    }
+
+    pub fn db(&'a mut self, db_name: &'static str) -> DB<'a> {
+        let db = DB {r: self, tt: TermType::DB, name: db_name};
+        db
+    }
+}
+
+pub struct DB<'a> {
+    r: &'a mut R<'a>,
     tt: TermType,
-    st: &'static str
+    name: &'static str
 }
-impl RQLTopLevelQuery for TopLevelTerm {}
+impl<'a> DB<'a> {
+    pub fn table(&'a mut self, table_name: &'static str) -> Term<'a> {
+        let t = Term {r: self.r, db: self, tt: TermType::TABLE, args: table_name};
+        t
+    }
 
-
-pub struct MethodTerm {
-    tt: TermType,
-    st: &'static str
-}
-impl RQLMethodQuery for MethodTerm {}
-
-
-pub struct BiCompareOperTerm {
-    tt: TermType,
-    st: &'static str
-}
-impl RQLBiCompareOperQuery for BiCompareOperTerm {}
-
-
-pub struct BiOperTerm {
-    tt: TermType,
-    st: &'static str
-}
-impl RQLBiOperQuery for BiOperTerm {}
-
-
-pub struct BracketTerm {
-    tt: TermType,
-    st: &'static str
-}
-impl RQLBracketQuery for BracketTerm {}
-
-
-// ----------------------------------------------------
-// Main db structs
-// ----------------------------------------------------
-
-pub struct Table {
-    fn get(&self) -> Term {tt: TermType::GET, st: "get"}
-}
-impl RQLQuery for Table {}
-
-pub struct DB {
-
+    pub fn compose(self) -> String {
+        let db_expr = format!("[{0}, [\"{1}\"]]", self.tt as u32, self.name);
+        db_expr
+    }
 }

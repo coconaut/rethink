@@ -14,6 +14,10 @@ fn log(s: &str) {
     println!("==> {}", s);
 }
 
+// TODO:
+// pub struct Connection {
+//
+// }
 
 // need to connect via TCP, form handshake, retreive success.
 pub fn connect() -> Option<TcpStream> {
