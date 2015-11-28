@@ -48,11 +48,11 @@ impl<'a> Term<'a> {
     }
 
     fn compose(&self) -> String {
-        let db_expr = compose(&self.db);
+        let db_expr = self.db.compose();
         // need to go forward in chain: for loop and wrap
         // for now, just using this term!
         //[15, [[14, [\"DeppFans\"]], \"Animals\"]]
-        let expressed = format!("[{0}, [{1}, \"{2}\"]]", TermType::TABLE as u32, db_expr, self.args);
+        let expressed = format!("[{0}, [{1}, \"{2}\"]]", self.tt as u32, db_expr, self.args);
         expressed
     }
 }
@@ -69,9 +69,10 @@ pub struct R<'a> {
     pub connection: &'a mut TcpStream
 }
 impl<'a> R<'a> {
-    pub fn new(&mut self, stream: &'a mut TcpStream) -> &mut R<'a> {
-        self.connection = stream;
-        self
+    // static
+    pub fn new(stream: &'a mut TcpStream) -> R<'a> {
+        let r = R {connection : stream};
+        r
     }
 
     pub fn db(&'a mut self, db_name: &'static str) -> DB<'a> {
@@ -90,9 +91,9 @@ impl<'a> DB<'a> {
         let t = Term {db: self, tt: TermType::TABLE, args: table_name};
         t
     }
-}
 
-pub fn compose(db: &DB) -> String {
-    let db_expr = format!("[{0}, [\"{1}\"]]", TermType::DB as u32, db.name);
-    db_expr
+    pub fn compose(&self) -> String {
+        let db_expr = format!("[{0}, [\"{1}\"]]", self.tt as u32, self.name);
+        db_expr
+    }
 }

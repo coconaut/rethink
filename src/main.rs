@@ -7,7 +7,7 @@ fn main() {
     let stream = net::connect();
     match stream {
         Some(mut s) => {
-            let mut r = R {connection: &mut s};
+            let mut r = R::new(&mut s);
             r.db("DeppFans").table("Animals").run();
 
         }

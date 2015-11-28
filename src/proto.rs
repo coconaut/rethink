@@ -1,4 +1,10 @@
 // follow ql2.proto
+// ----------------------------------------------------------------------------------------
+// NOTE: these must impl the COPY trait if casting is needed in a borrowed context.
+// Otherwise, casting to the numeric value constitutes a move and jams up the ast type
+// that made use of the enum. Not really a big deal, since they're all basically ints that
+// should be copyable.
+// ----------------------------------------------------------------------------------------
 
 pub enum Version {
     V0_1 = 0x3f61ba36,
@@ -13,7 +19,7 @@ pub enum Protocol {
     JSON     = 0x7e6970c7
 }
 
-
+#[derive(Copy, Clone)]
 pub enum QueryType {
     START         = 1,
     CONTINUE      = 2,
@@ -102,6 +108,7 @@ pub enum DatumType {
     R_JSON   = 7 // uses r_str
 }
 
+#[derive(Copy, Clone)]
 pub enum TermType {
     // A RQL datum, stored in `datum` below.
     DATUM = 1,
