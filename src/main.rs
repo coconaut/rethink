@@ -23,5 +23,6 @@ fn main() {
     conn.connect();
     //r.db("DeppFans").table("Animals").run(conn);
     r.db("DeppFans").table_list().run(conn);
+    //r.db("DeppFans").table_create("Cars").run(conn);
 
 }

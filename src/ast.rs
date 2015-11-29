@@ -140,6 +140,7 @@ impl R {
         self.connection.connect();
     }
 
+    // TODO: this must be mutable ref, need to deal with lifetime specifers
     pub fn db(self, db_name: &'static str) -> DB {
         let db = DB {r: self, tt: TermType::DB, name: db_name};
         db
@@ -163,7 +164,10 @@ impl DB {
         Term {tt: TermType::TABLE_LIST, args: "", prev: Some(Box::new(self))}
     }
 
-    //table create
+    //table create -> TODO: options!
+    pub fn table_create(self, table_name: &'static str) -> Term<DB> {
+        Term {tt: TermType::TABLE_CREATE, args: table_name, prev: Some(Box::new(self))}
+    }
 
 
     //table drop
