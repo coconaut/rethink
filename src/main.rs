@@ -22,7 +22,9 @@ fn main() {
     let mut conn = net::Connection::new();
     conn.connect();
     //r.db("DeppFans").table("Animals").run(conn);
-    r.db("DeppFans").table_list().run(conn);
-    //r.db("DeppFans").table_create("Cars").run(conn);
+    r.db("DeppFans").table_list().run(&mut conn);
+    //r.db("DeppFans").table_create("Clouds").run(&mut conn);
+    r.db("DeppFans").table_list().run(&mut conn);
+
 
 }

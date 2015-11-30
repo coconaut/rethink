@@ -8,13 +8,9 @@ use proto::{Version, Protocol};
 use self::byteorder::{WriteBytesExt, LittleEndian, BigEndian};
 
 
-fn log(s: &str) {
-    println!("==> {}", s);
-}
-
 pub struct Connection {
     addr: &'static str,
-    token: u64,
+    pub token: u64,
     pub stream : Option<TcpStream>
 }
 impl Connection {
@@ -28,8 +24,39 @@ impl Connection {
         establish_connection(self);
         handshake(self)
     }
+}
 
+pub fn send_query(query: String, c: &mut Connection) {
+    // get bytes (Vec)
+    let bytes = query.into_bytes();
 
+    // take a slice
+    let mut q = &bytes[..];
+    let len = q.len();
+
+    match c.stream {
+        None => println!("no active connection..."),
+        Some(ref mut stream) => {
+            // incr token
+            c.token += 1;
+            // write to stream
+            let _ = stream.write_u64::<BigEndian>(c.token);
+            let _ = stream.write_u32::<LittleEndian>(len as u32);
+            let _ = stream.write(q);
+        }
+    }
+}
+
+pub fn read_query_response(c: &mut Connection) {
+    match c.stream {
+        None => println!("no active connection..."),
+        Some(ref mut stream) => {
+            let mut buffer = [0; 100];
+            let size = stream.read(&mut buffer).unwrap();
+            let msg = str::from_utf8(&mut buffer).unwrap();
+            println!("{}", msg);
+        }
+    }
 }
 
 fn establish_connection(c: &mut Connection) {
@@ -68,6 +95,7 @@ fn handshake(c: &mut Connection) -> bool {
     }
 }
 
+
 // TODO: accept version and protocol params, auth token, etc.
 fn send_version_and_protocol(stream: &mut TcpStream) {
     let version = Version::V0_4 as u32;
@@ -91,7 +119,7 @@ pub fn read_handshake_response(stream: &mut TcpStream) -> String {
 
 
 pub fn read_query_test(stream: &mut TcpStream){
-    log("quering the database for a test read");
+    println!("quering the database for a test read");
     let token: u64 = 1;
     // ReQL: r.db("DeppFans").table("Animals")
     let q = "[1,[15, [[14, [\"DeppFans\"]], \"Animals\"]],{}]".as_bytes();
@@ -109,7 +137,7 @@ pub fn read_query_test(stream: &mut TcpStream){
 }
 
 pub fn write_query_test(stream: &mut TcpStream) {
-    log("quering the database for a test write");
+    println!("quering the database for a test write");
     let token: u64 = 2;
     // ReQL: r.db("DeppFans").table("Animals").insert(some json)
     let q =

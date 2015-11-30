@@ -9,45 +9,26 @@ use std::boxed;
 use self::byteorder::{WriteBytesExt, LittleEndian, BigEndian};
 use net::*;
 
-// use these to maintain vec
-// enum MetaTerm {
-//     _Term(Term),
-//     _Table(Table),
-//     _DB(DB)
-// }
-
 
 // -------------------------------------------
 // RqlQuery: this is the base trait for all query terms
 // -------------------------------------------
 pub trait RqlQuery {
+
     // each term struct must have way to overload build method for the RqlQuery syntax
     fn build(&self) -> String;
 
     // standard run function: accepts a connection -> can have specifics that use defaults
-    fn run(&self, c: Connection) {
+    // may want to move method to the connection...
+    // should return some type of result, need to parse response message
+    // either err, result, or cursor...
+    fn run(&self, c: &mut Connection) {
         let start = QueryType::START as u32;
-        let token: u64 = 1;
-
         let composed = self.build();
-        //[1,[15, [[14, [\"DeppFans\"]], \"Animals\"]],{}]
-        let wrapped = format!("[{0}, {1}, {{}}]", start, composed);
-        println!("about to send: {0}", wrapped);
-        let bytes = wrapped.into_bytes();
-
-        // take a slice
-        let mut q = &bytes[..];
-        let len = q.len();
-        let mut buffer = [0; 100];
-
-        let ref mut stream = c.stream.unwrap();
-
-        let _ = stream.write_u64::<BigEndian>(token);
-        let _ = stream.write_u32::<LittleEndian>(len as u32);
-        let _ = stream.write(q);
-        let size = stream.read(&mut buffer).unwrap();
-        let msg = str::from_utf8(&mut buffer).unwrap();
-        println!("{}", msg);
+        let query = format!("[{0}, {1}, {{}}]", start, composed);
+        println!("about to send: {0}", query);
+        send_query(query, c);
+        read_query_response(c);
     }
 }
 
@@ -60,35 +41,8 @@ pub struct Term<T: RqlQuery> {
     tt: TermType,
     args: &'static str,
     //options: &'static str, keyword args, etc. may be better way than string!
-    prev: Option<Box<T>> // TODO: this will probably be generic! T: RqlQuery
+    prev: Option<Box<T>>
 }
-
-// impl Term {
-//     fn run(self) {
-//         let start = QueryType::START as u32;
-//         let token: u64 = 1;
-//
-//         let composed = self.build();
-//         //[1,[15, [[14, [\"DeppFans\"]], \"Animals\"]],{}]
-//         let wrapped = format!("[{0}, {1}, {{}}]", start, composed);
-//         let bytes = wrapped.into_bytes();
-//
-//         // take a slice
-//         let mut q = &bytes[..];
-//         let len = q.len();
-//         let mut buffer = [0; 100];
-//
-//         let ref mut stream = self.db.r.connection.stream.unwrap();
-//
-//         let _ = stream.write_u64::<BigEndian>(token);
-//         let _ = stream.write_u32::<LittleEndian>(len as u32);
-//         let _ = stream.write(q);
-//         let size = stream.read(&mut buffer).unwrap();
-//         let msg = str::from_utf8(&mut buffer).unwrap();
-//         println!("{}", msg);
-//         // may need to return self, combinator?
-//     }
-// }
 
 impl<T: RqlQuery> RqlQuery for Term<T> {
     fn build(&self) -> String {
@@ -126,74 +80,87 @@ impl<T: RqlQuery> RqlQuery for Term<T> {
 // the root struct. useful in holding defualts.
 // also contains db methods, connection methods, etc.
 pub struct R {
-    pub connection: Connection
+    pub connection: Option<Connection>
 }
 
 impl R {
     // static
     pub fn new() -> R {
-        let r = R {connection : Connection::new()};
-        r
+        //let r = R {connection : Connection::new()};
+        R {connection: None}
     }
 
-    pub fn connect(&mut self) {
-        self.connection.connect();
+    pub fn use_connection(&mut self, conn: Connection) {
+        self.connection = Some(conn);
+    }
+
+    // r should also have a default db, use_db, e.g.? or would this mean r needs all of db's methods...
+    // could do with a trait, then just have Option<db>, wouldn't be too difficult
+
+    pub fn connect(&mut self) -> bool{
+        match self.connection {
+            None => {
+                println!("no active connection");
+                false
+            },
+            Some(ref mut c) => c.connect()
+        }
     }
 
     // TODO: this must be mutable ref, need to deal with lifetime specifers
-    pub fn db(self, db_name: &'static str) -> DB {
+    pub fn db<'a>(&'a mut self, db_name: &'static str) -> DB<'a> {
         let db = DB {r: self, tt: TermType::DB, name: db_name};
         db
     }
 }
 
 // the DB struct -> has table methods
-pub struct DB {
-    r: R,
+pub struct DB<'a> {
+    r: &'a mut R,
     tt: TermType,
     name: &'static str
 }
 
-impl DB {
-    pub fn table(self, table_name: &'static str) -> Table {
+impl<'a> DB<'a> {
+    pub fn table(self, table_name: &'static str) -> Table<'a> {
         Table::new(self, table_name)
     }
 
     //table list
-    pub fn table_list(self) -> Term<DB> {
+    pub fn table_list(self) -> Term<DB<'a>> {
         Term {tt: TermType::TABLE_LIST, args: "", prev: Some(Box::new(self))}
     }
 
     //table create -> TODO: options!
-    pub fn table_create(self, table_name: &'static str) -> Term<DB> {
+    pub fn table_create(self, table_name: &'static str) -> Term<DB<'a>> {
         Term {tt: TermType::TABLE_CREATE, args: table_name, prev: Some(Box::new(self))}
     }
-
 
     //table drop
 
 }
 
-impl RqlQuery for DB {
+impl<'a> RqlQuery for DB<'a> {
     fn build(&self) -> String {
         format!("[{0}, [\"{1}\"]]", self.tt as u32, self.name)
     }
 }
 
-pub struct Table {
-    db: DB,
+pub struct Table<'a> {
+    // really doesn't need db, but r
+    db: DB<'a>,
     tt: TermType,
     args: &'static str,
 }
 
-impl Table {
-    pub fn new(db: DB, args: &'static str) -> Table {
+impl<'a> Table<'a> {
+    pub fn new(db: DB<'a>, args: &'static str) -> Table<'a> {
         let t = Table {db: db, tt: TermType::TABLE, args: args};
         t
     }
 }
 
-impl RqlQuery for Table {
+impl<'a> RqlQuery for Table<'a> {
     fn build(&self) -> String {
         let db_expr = self.db.build();
         // need to go forward in chain: for loop and wrap
