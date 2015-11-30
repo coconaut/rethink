@@ -37,7 +37,7 @@ pub fn send_query(query: String, c: &mut Connection) {
     match c.stream {
         None => println!("no active connection..."),
         Some(ref mut stream) => {
-            // incr token
+            // incr token -> not sure this is working...
             c.token += 1;
             // write to stream
             let _ = stream.write_u64::<BigEndian>(c.token);

@@ -95,7 +95,7 @@ impl R {
     }
 
     // r should also have a default db, use_db, e.g.? or would this mean r needs all of db's methods...
-    // could do with a trait, then just have Option<db>, wouldn't be too difficult
+    // could do with a trait, then just have Option<db>, wouldn't be too difficult...
 
     pub fn connect(&mut self) -> bool{
         match self.connection {
