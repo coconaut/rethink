@@ -8,9 +8,8 @@ fn main() {
     let mut r = R::new();
 
     // set up a connection and borrower for convenience
-    let mut c = net::Connection::new();
-    c.connect();
-    let conn = &mut c;
+    let mut connection = net::Connection::new();
+    let conn = &mut connection;
 
     // run some queries
     r.db("DeppFans").table("Animals").run(conn);

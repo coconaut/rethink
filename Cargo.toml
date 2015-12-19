@@ -5,3 +5,4 @@ authors = ["ambarry <ambarry22@gmail.com>"]
 
 [dependencies]
 byteorder = "0.4.2"
+rustc-serialize = "0.3"

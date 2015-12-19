@@ -1,4 +1,5 @@
 extern crate byteorder;
+extern crate rustc_serialize;
 use proto::{TermType, QueryType};
 use std::io;
 use std::io::prelude::*;
@@ -7,6 +8,7 @@ use std::str;
 use std::mem;
 use std::boxed;
 use self::byteorder::{WriteBytesExt, LittleEndian, BigEndian};
+use self::rustc_serialize::json;
 use net::*;
 
 
@@ -26,7 +28,6 @@ pub trait RqlQuery {
         let start = QueryType::START as u32;
         let composed = self.build();
         let query = format!("[{0}, {1}, {{}}]", start, composed);
-        println!("about to send: {0}", query);
         send_query(query, c);
         read_query_response(c);
     }
@@ -41,6 +42,8 @@ pub struct Term<T: RqlQuery> {
     tt: TermType,
     args: &'static str,
     //options: &'static str, keyword args, etc. may be better way than string!
+    // TODO: we can just build first, send this the String!!
+    // then can remove the generic as well
     prev: Option<Box<T>>
 }
 
@@ -51,21 +54,27 @@ impl<T: RqlQuery> RqlQuery for Term<T> {
             None => {
                 //just need to build self
                 if self.args == "" {
+                    println!("no args");
                     format!("[{0}]", self.tt as u32)
                 }
                 else {
                     // TODO: JSON encode the args first!
-                    format!("[{0}, [\"{1}\"]]", self.tt as u32, self.args)
+                    let encoded = json::encode(&self.args).unwrap();
+                    println!("encoded: {}", encoded);
+                    format!("[{0}, [\"{1}\"]]", self.tt as u32, encoded)
                 }
-            }
+            },
             Some(ref prev_term) => {
                 // recursively build and wrap previous terms!
                 let pr = prev_term.build();
                 if self.args == "" {
+                    println!("no args");
                     format!("[{0}, [{1}]]", self.tt as u32, pr)
                 }
                 else {
-                    format!("[{0}, [{1}, \"{2}\"]]", self.tt as u32, pr, self.args)
+                    let encoded = json::encode(&self.args).unwrap();
+                    println!("encoded: {}", encoded);
+                    format!("[{0}, [{1}, \"{2}\"]]", self.tt as u32, pr, encoded)
                 }
             }
         }
@@ -86,7 +95,7 @@ pub struct R {
 impl R {
     // static
     pub fn new() -> R {
-        //let r = R {connection : Connection::new()};
+        // let r = R {connection : Connection::new()};
         R {connection: None}
     }
 
@@ -97,15 +106,15 @@ impl R {
     // r should also have a default db, use_db, e.g.? or would this mean r needs all of db's methods...
     // could do with a trait, then just have Option<db>, wouldn't be too difficult...
 
-    pub fn connect(&mut self) -> bool{
-        match self.connection {
-            None => {
-                println!("no active connection");
-                false
-            },
-            Some(ref mut c) => c.connect()
-        }
-    }
+    // pub fn connect(self) -> bool {
+    //     match self.connection {
+    //         None => {
+    //             println!("no active connection");
+    //             false
+    //         },
+    //         Some(ref mut c) => c.connect()
+    //     }
+    // }
 
     // TODO: this must be mutable ref, need to deal with lifetime specifers
     pub fn db<'a>(&'a mut self, db_name: &'static str) -> DB<'a> {

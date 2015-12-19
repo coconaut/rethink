@@ -8,6 +8,7 @@ use proto::{Version, Protocol};
 use self::byteorder::{WriteBytesExt, LittleEndian, BigEndian};
 
 
+
 pub struct Connection {
     addr: &'static str,
     pub token: u64,
@@ -17,12 +18,23 @@ impl Connection {
     // TODO: accept params
     pub fn new() -> Connection {
         let c = Connection {addr:"127.0.0.1:28015", token: 0, stream: None};
-        c
+        let connected = connect(c);
+        match connected {
+            Ok(conn) => conn,
+            Err(s) => panic!(s)
+        }
     }
+}
 
-    pub fn connect(&mut self) -> bool {
-        establish_connection(self);
-        handshake(self)
+
+pub fn connect(c: Connection) -> Result<Connection, String> {
+    match establish_connection(c) {
+        Ok(mut co) =>
+            match handshake(&mut co){
+                (true, _) => Ok(co),
+                (false, e) => Err(e)
+            },
+        Err(e) => Err(e)
     }
 }
 
@@ -59,37 +71,27 @@ pub fn read_query_response(c: &mut Connection) {
     }
 }
 
-fn establish_connection(c: &mut Connection) {
+fn establish_connection(c: Connection) -> Result<Connection, String> {
     let stream_res = TcpStream::connect(c.addr);
     match stream_res {
         Ok(mut stream) => {
-            c.stream = Some(stream);
-        }
-        Err(e) => {
-            println!("Unable to connect: {}", e);
-        }
+            let mut new_c = Connection {stream: Some(stream), .. c};
+            Ok(new_c)
+        },
+        Err(e) => Err(String::from("socket error"))
     }
 }
 
-fn handshake(c: &mut Connection) -> bool {
+fn handshake(c: &mut Connection) -> (bool, String) {
     println!("performing handshake...");
     match c.stream {
-        None => {
-            println!("no active connection...");
-            false
-        }
+        None => (false, String::from("no active connection")),
         Some(ref mut stream) => {
             send_version_and_protocol(stream);
             let msg = read_handshake_response(stream);
             match msg.as_ref() {
-                "SUCCESS" => {
-                    println!("{}", msg);
-                    true
-                },
-                x => {
-                    println!("Auth failed!!! {} !!!", x);
-                    false
-                }
+                "SUCCESS" => (true, String::new()),
+                x => (false, String::from(x)),
             }
         }
     }
